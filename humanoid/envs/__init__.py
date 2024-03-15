@@ -34,9 +34,12 @@ from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .base.legged_robot import LeggedRobot
 
 from .custom.humanoid_config import XBotLCfg, XBotLCfgPPO
+from .custom.bipedv5_config import bipedv5Cfg, bipedv5CfgPPO
+from .custom.bipedv5_env import bipedv5FreeEnv
 from .custom.humanoid_env import XBotLFreeEnv
 
 from humanoid.utils.task_registry import task_registry
 
 
 task_registry.register( "humanoid_ppo", XBotLFreeEnv, XBotLCfg(), XBotLCfgPPO() )
+task_registry.register( "bipedv5_ppo", bipedv5FreeEnv, bipedv5Cfg(), bipedv5CfgPPO() )
