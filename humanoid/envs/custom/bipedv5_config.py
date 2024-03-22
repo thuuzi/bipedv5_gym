@@ -38,11 +38,11 @@ class bipedv5Cfg(LeggedRobotCfg):
         # change the observation dim
         frame_stack = 15
         c_frame_stack = 3
-        num_single_obs = 47
+        num_single_obs = 41
         num_observations = int(frame_stack * num_single_obs)
-        single_num_privileged_obs = 73
+        single_num_privileged_obs = 65
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
-        num_actions = 12
+        num_actions = 10
         num_envs = 4096
         episode_length_s = 24 # episode length in seconds
         use_ref_actions = False
@@ -82,7 +82,7 @@ class bipedv5Cfg(LeggedRobotCfg):
         num_cols = 20  # number of terrain cols (types)
         max_init_terrain_level = 10  # starting curriculum state
         # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
-        terrain_proportions = [0.2, 0.2, 0.4, 0.1, 0.1, 0, 0]
+        terrain_proportions = [0.2, 0.5, 0.4, 0.1, 0.1, 0, 0]
         restitution = 0.
 
     class noise:
@@ -106,13 +106,11 @@ class bipedv5Cfg(LeggedRobotCfg):
             'lh': -0.4,
             'lkp': 0.,
             'lk': -0.8,
-            'lap': 0.,
             'la': 0.4,
             'ry': 0.,
             'rh': -0.4,
             'rkp': -0.,
             'rk': -0.8,
-            'rap': -0.,
             'ra': 0.4,
         }
 
@@ -120,7 +118,7 @@ class bipedv5Cfg(LeggedRobotCfg):
         # PD Drive parameters:
         control_type = 'P'
 
-        stiffness = {'la': 20.0,'ra': 20.0, 'ap': 350.0,'kp': 350.0,'y': 200.0,
+        stiffness = {'la': 20.0,'ra': 20.0, 'ap': 20.0,'kp': 20.0,'y': 200.0,
                      'h': 350.0, 'lk': 250, 'rk': 250}
         damping = {'la': 10,'ra': 10, 'ap': 10,'kp': 10,'y': 
                    10, 'h': 10, 'lk': 10,'rk': 10}
@@ -176,9 +174,9 @@ class bipedv5Cfg(LeggedRobotCfg):
         min_dist = 0.2
         max_dist = 0.5 
         # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.17    # rad
+        target_joint_pos_scale = 0.2    # rad
         target_feet_height = 0.05       # m
-        cycle_time = 0.64                # sec
+        cycle_time = 0.8                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
@@ -198,7 +196,7 @@ class bipedv5Cfg(LeggedRobotCfg):
             # contact 
             feet_contact_forces = -0.01
             # vel tracking
-            tracking_lin_vel = 1.2
+            tracking_lin_vel = 2.0
             tracking_ang_vel = 1.1
             vel_mismatch_exp = 0.5  # lin_z; ang x,y
             low_speed = 0.2

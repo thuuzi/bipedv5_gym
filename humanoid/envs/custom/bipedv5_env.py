@@ -82,13 +82,6 @@ class bipedv5FreeEnv(LeggedRobot):
         self.compute_observations()
 
 
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
-        super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
-        self.last_feet_z = 0.05
-        self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
-        self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
-        self.compute_observations()
-
     def _push_robots(self):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
         """
@@ -127,23 +120,23 @@ class bipedv5FreeEnv(LeggedRobot):
     
 
     def compute_ref_state(self):
-        phase = self._get_phase()
-        sin_pos = torch.sin(2 * torch.pi * phase)
+        phase = self._get_phase()       #num_env*1
+        sin_pos = torch.sin(2 * torch.pi * phase)     #num_env*1
         sin_pos_l = sin_pos.clone()
         sin_pos_r = sin_pos.clone()
-        self.ref_dof_pos = torch.zeros_like(self.dof_pos)
+        self.ref_dof_pos = torch.zeros_like(self.dof_pos)     #num_env*dof
         scale_1 = self.cfg.rewards.target_joint_pos_scale
         scale_2 = 2 * scale_1
         # left swing
         sin_pos_l[sin_pos_l > 0] = 0
-        self.ref_dof_pos[:, 2] = sin_pos_l * scale_1
+        self.ref_dof_pos[:, 1] = sin_pos_l * scale_1
         self.ref_dof_pos[:, 3] = sin_pos_l * scale_2
-        self.ref_dof_pos[:, 4] = sin_pos_l * scale_1
+        self.ref_dof_pos[:, 4] = -sin_pos_l * scale_1
         # right
         sin_pos_r[sin_pos_r < 0] = 0
-        self.ref_dof_pos[:, 8] = sin_pos_r * scale_1
-        self.ref_dof_pos[:, 9] = sin_pos_r * scale_2
-        self.ref_dof_pos[:, 10] = sin_pos_r * scale_1
+        self.ref_dof_pos[:, 6] = -sin_pos_r * scale_1
+        self.ref_dof_pos[:, 8] = -sin_pos_r * scale_2
+        self.ref_dof_pos[:, 9] = sin_pos_r * scale_1
 
         self.ref_dof_pos[torch.abs(sin_pos) < 0.1] = 0.
 
@@ -186,11 +179,11 @@ class bipedv5FreeEnv(LeggedRobot):
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_vec[0: 5] = 0.  # commands
-        noise_vec[5: 17] = noise_scales.dof_pos * self.obs_scales.dof_pos
-        noise_vec[17: 29] = noise_scales.dof_vel * self.obs_scales.dof_vel
-        noise_vec[29: 41] = 0.  # previous actions
-        noise_vec[41: 44] = noise_scales.ang_vel * self.obs_scales.ang_vel   # ang vel
-        noise_vec[44: 47] = noise_scales.quat * self.obs_scales.quat         # euler x,y
+        noise_vec[5: 15] = noise_scales.dof_pos * self.obs_scales.dof_pos
+        noise_vec[15: 25] = noise_scales.dof_vel * self.obs_scales.dof_vel
+        noise_vec[25: 35] = 0.  # previous actions
+        noise_vec[35: 38] = noise_scales.ang_vel * self.obs_scales.ang_vel   # ang vel
+        noise_vec[38: 41] = noise_scales.quat * self.obs_scales.quat         # euler x,y
         return noise_vec
 
 
@@ -199,12 +192,12 @@ class bipedv5FreeEnv(LeggedRobot):
             actions += self.ref_action
         delay = torch.rand((self.num_envs, 1), device=self.device)
         actions = (1 - delay) * actions + delay * self.actions
-        action_pri1 = (actions[:,2]+actions[:,4])/2.
-        action_pri2 = (actions[:,8]+actions[:,10])/2.
-        actions[:,2] = action_pri1
-        actions[:,4] = action_pri1
-        actions[:,8] = action_pri2
-        actions[:,10] = action_pri2
+        # action_pri1 = (actions[:,2]+actions[:,4])/2.
+        # action_pri2 = (actions[:,8]+actions[:,10])/2.
+        # actions[:,2] = action_pri1
+        # actions[:,4] = action_pri1
+        # actions[:,8] = action_pri2
+        # actions[:,10] = action_pri2
         return super().step(actions)
 
 
@@ -231,13 +224,13 @@ class bipedv5FreeEnv(LeggedRobot):
             self.command_input,  # 2 + 3
             (self.dof_pos - self.default_joint_pd_target) * \
             self.obs_scales.dof_pos,  # 12
-            self.dof_vel * self.obs_scales.dof_vel,  # 12
-            self.actions,  # 12
+            self.dof_vel * self.obs_scales.dof_vel,  # 10
+            self.actions,  # 10
             diff,  # 12
             self.base_lin_vel * self.obs_scales.lin_vel,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz * self.obs_scales.quat,  # 3
-            self.rand_push_force[:, :2],  # 3
+            self.rand_push_force[:, :2],  # 2
             self.rand_push_torque,  # 3
             self.env_frictions,  # 1
             self.body_mass / 30.,  # 1
@@ -253,18 +246,17 @@ class bipedv5FreeEnv(LeggedRobot):
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz * self.obs_scales.quat,  # 3
         ), dim=-1)
-
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
             self.privileged_obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
-        
+
+  
         if self.add_noise:  
             obs_now = obs_buf.clone() + torch.randn_like(obs_buf) * self.noise_scale_vec * self.cfg.noise.noise_level
         else:
             obs_now = obs_buf.clone()
         self.obs_history.append(obs_now)
         self.critic_history.append(self.privileged_obs_buf)
-
 
         obs_buf_all = torch.stack([self.obs_history[i]
                                    for i in range(self.obs_history.maxlen)], dim=1)  # N,T,K
@@ -298,9 +290,9 @@ class bipedv5FreeEnv(LeggedRobot):
         foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
         fd = self.cfg.rewards.min_dist
         max_df = self.cfg.rewards.max_dist
-        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
-        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
-        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+        d_min = torch.clamp(foot_dist - fd, 0, 0.5)
+        d_max = torch.clamp(max_df - foot_dist, 0, 0.5)
+        return -(torch.exp(-torch.abs(d_min) * 50) + torch.exp(-torch.abs(d_max) * 50)) / 2
 
 
     def _reward_knee_distance(self):
@@ -310,10 +302,10 @@ class bipedv5FreeEnv(LeggedRobot):
         foot_pos = self.rigid_state[:, self.knee_indices, :2]
         foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
         fd = self.cfg.rewards.min_dist
-        max_df = self.cfg.rewards.max_dist / 2
-        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
-        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
-        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+        max_df = self.cfg.rewards.max_dist 
+        d_min = torch.clamp(foot_dist - fd, 0, 0.5)
+        d_max = torch.clamp(max_df - foot_dist, 0, 0.5)
+        return -(torch.exp(-torch.abs(d_min) * 50) + torch.exp(-torch.abs(d_max) * 50)) / 2
 
 
     def _reward_foot_slip(self):

@@ -323,7 +323,7 @@
   </link>
   <joint
     name="lap"
-    type="prismatic">
+    type="fixed">
     <origin
       xyz="0.0564999588174406 0 -0.192000034377183"
       rpy="0 0 0" />
@@ -678,7 +678,7 @@
   </link>
   <joint
     name="rap"
-    type="prismatic">
+    type="fixed">
     <origin
       xyz="-0.0564999588174397 0 -0.192000034377183"
       rpy="0 0 0" />
